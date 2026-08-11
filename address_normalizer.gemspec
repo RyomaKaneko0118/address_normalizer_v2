@@ -3,6 +3,7 @@ Gem::Specification.new do |s|
   s.version       = "0.1.0"
   s.summary       = "Rust-powered address normalizer (prebuilt binary)"
   s.authors       = ["you"]
+  s.add_dependency "fiddle", "~> 1.1"
   s.homepage      = "https://github.com/RyomaKaneko0118/address_normalizer_v2"
   s.metadata      = {
     "source_code_uri" => "https://github.com/RyomaKaneko0118/address_normalizer_v2"
