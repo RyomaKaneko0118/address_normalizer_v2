@@ -1,0 +1,5 @@
+/ext/address_normalizer/target/
+*.gem
+*.so
+*.dylib
+*.dll
