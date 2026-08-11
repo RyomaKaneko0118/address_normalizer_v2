@@ -3,6 +3,10 @@ Gem::Specification.new do |s|
   s.version       = "0.1.0"
   s.summary       = "Rust-powered address normalizer (prebuilt binary)"
   s.authors       = ["you"]
+  s.homepage      = "https://github.com/RyomaKaneko0118/address_normalizer_v2"
+  s.metadata      = {
+    "source_code_uri" => "https://github.com/RyomaKaneko0118/address_normalizer_v2"
+  }
   s.files         = Dir["lib/**/*.rb"] + ["ext/address_normalizer/extconf.rb"]
   s.extensions    = ["ext/address_normalizer/extconf.rb"]
   s.require_paths = ["lib"]

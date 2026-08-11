@@ -3,7 +3,7 @@ require "uri"
 
 # 配布元。あなたのGitHubリポジトリに合わせる
 BASE_URL = ENV.fetch("ADDRESS_NORMALIZER_BASE_URL",
-                     "https://github.com/RyomaKaneko0118/address_normalizer/releases/download")
+                     "https://github.com/RyomaKaneko0118/address_normalizer_v2/releases/download")
 VERSION  = "0.1.0"
 
 # 実行環境(OS/CPU)から、DLすべき配布ファイル名を決める
