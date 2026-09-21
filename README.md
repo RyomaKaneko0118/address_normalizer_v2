@@ -23,7 +23,7 @@ Rust で書かれた住所正規化ロジックを、**ビルド済みバイナ�
           libaddress_normalizer-aarch64-apple-darwin.dylib
           libaddress_normalizer-x86_64-linux-gnu.so   ... 等
 
-[インストール時]  gem install address_normalizer
+[インストール時]  bundle install（git ソース）
                   │
                   ▼
         ext/address_normalizer/extconf.rb
@@ -142,9 +142,27 @@ Linux は glibc 前提（`-linux-gnu`）。musl（Alpine 等）向けバイナ�
 
 ## インストール
 
-```sh
-gem install address_normalizer
+**この gem は RubyGems.org には公開していない。** `gem install address_normalizer` は解決できない。
+Gemfile に git ソースとして書く。
+
+```ruby
+gem "address_normalizer",
+    git: "https://github.com/RyomaKaneko0118/address_normalizer_v2.git",
+    tag: "v0.1.0"
 ```
+
+Bundler は git 取得した gem に対しても `s.extensions` を実行するため、`extconf.rb` によるバイナリ取得はこの経路でも動く。
+
+`tag:` は必ず指定すること。`extconf.rb` の `VERSION` はハードコードで、DL 先の Release を決めるのはチェックアウトしたリビジョンではなくこの定数である。ブランチ追従にすると、コードと取得するバイナリのバージョンが食い違い得る。
+
+Bundler を介さずローカルで試す場合は、リポジトリを clone して gem を組み立てる。
+
+```sh
+gem build address_normalizer.gemspec
+gem install address_normalizer-0.1.0.gem
+```
+
+### バイナリの取得
 
 `extconf.rb` は次の URL からバイナリを取得する。
 
@@ -164,7 +182,7 @@ gem install address_normalizer
 | `ADDRESS_NORMALIZER_BASE_URL` | 配布元のベース URL を差し替える。社内ミラーやローカルの HTTP サーバを指定してオフライン/検証用に使う |
 
 ```sh
-ADDRESS_NORMALIZER_BASE_URL=http://localhost:8000 gem install address_normalizer
+ADDRESS_NORMALIZER_BASE_URL=http://localhost:8000 bundle install
 ```
 
 > セキュリティ上の注意: ダウンロードしたバイナリのチェックサム検証・署名検証は実装していない。信頼できる `BASE_URL` のみを指定すること。
