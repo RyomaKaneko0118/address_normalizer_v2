@@ -50,3 +50,25 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ext/address_normalizer/${{ matrix.asset }}
+
+  checksums:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "${{ github.ref_name }}" \
+            --repo "${{ github.repository }}" \
+            --dir dist \
+            --pattern '*.so' --pattern '*.dylib' --pattern '*.dll'
+      - name: Generate SHA256SUMS
+        working-directory: dist
+        run: |
+          sha256sum *.so *.dylib *.dll > SHA256SUMS
+          cat SHA256SUMS
+      - name: Upload SHA256SUMS to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/SHA256SUMS

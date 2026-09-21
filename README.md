@@ -12,16 +12,17 @@ Rust で書かれた住所正規化ロジックを、**ビルド済みバイナ�
 ## アーキテクチャ
 
 ```
-[リリース時]  git tag v0.1.0
+[リリース時]  git tag v0.2.0
                   │
                   ▼
         GitHub Actions (matrix: 5 target)
         cross build --release
                   │
                   ▼
-        GitHub Releases /v0.1.0/
+        GitHub Releases /v0.2.0/
           libaddress_normalizer-aarch64-apple-darwin.dylib
           libaddress_normalizer-x86_64-linux-gnu.so   ... 等
+          SHA256SUMS                                  ... 全アセットのSHA-256
 
 [インストール時]  bundle install（git ソース）
                   │
@@ -29,7 +30,8 @@ Rust で書かれた住所正規化ロジックを、**ビルド済みバイナ�
         ext/address_normalizer/extconf.rb
           1. host_os / host_cpu からアセット名を決定
           2. Releases から該当バイナリを DL（302 追従）
-          3. コピーするだけの Makefile を生成
+          3. SHA256SUMS と照合（不一致なら中断）
+          4. コピーするだけの Makefile を生成
                   │
                   ▼
         $(sitearchdir)/libaddress_normalizer-<triple>.<ext>
@@ -148,7 +150,7 @@ Gemfile に git ソースとして書く。
 ```ruby
 gem "address_normalizer",
     git: "https://github.com/RyomaKaneko0118/address_normalizer_v2.git",
-    tag: "v0.1.0"
+    tag: "v0.2.0"
 ```
 
 Bundler は git 取得した gem に対しても `s.extensions` を実行するため、`extconf.rb` によるバイナリ取得はこの経路でも動く。
@@ -159,7 +161,7 @@ Bundler を介さずローカルで試す場合は、リポジトリを clone �
 
 ```sh
 gem build address_normalizer.gemspec
-gem install address_normalizer-0.1.0.gem
+gem install address_normalizer-0.2.0.gem
 ```
 
 ### バイナリの取得
@@ -171,9 +173,29 @@ gem install address_normalizer-0.1.0.gem
 ```
 
 - `BASE_URL` — 既定値 `https://github.com/RyomaKaneko0118/address_normalizer_v2/releases/download`
-- `VERSION` — `extconf.rb` 内のハードコード値（現在 `0.1.0`）
+- `VERSION` — `extconf.rb` 内のハードコード値（現在 `0.2.0`）
 
 ダウンロードは `Net::HTTP` を使い、最大 5 回までリダイレクトを追従する（GitHub Releases は実体の CDN へ 302 を返すため必須）。
+
+### チェックサム検証
+
+バイナリを取得したら、同じディレクトリに置かれた `SHA256SUMS` と照合してから書き出す。
+
+```
+{BASE_URL}/v{VERSION}/SHA256SUMS
+```
+
+`sha256sum(1)` の出力形式（`<hex>  <ファイル名>`）で全アセット分の行が並ぶ。`extconf.rb` は自分が必要とするアセットの行だけを引き、`Digest::SHA256` で計算した値と比較する。
+
+**検証は必須で、省略する手段はない。** 以下はいずれもインストールを中断させる。
+
+| 状況 | 挙動 |
+|---|---|
+| ハッシュ不一致 | `checksum mismatch` — expected / actual / 取得元 URL を表示して中断 |
+| `SHA256SUMS` が 404 | `checksum file not available` で中断 |
+| `SHA256SUMS` に該当アセットの行がない | `no checksum entry for ...` で中断 |
+
+不一致の時点で中断するため、検証に失敗したバイトがディスクに書かれることはない（`File.binwrite` は検証の後）。
 
 ### 環境変数
 
@@ -181,11 +203,20 @@ gem install address_normalizer-0.1.0.gem
 |---|---|
 | `ADDRESS_NORMALIZER_BASE_URL` | 配布元のベース URL を差し替える。社内ミラーやローカルの HTTP サーバを指定してオフライン/検証用に使う |
 
+差し替え先にも `v{VERSION}/` 配下にバイナリと `SHA256SUMS` の両方を置く必要がある。
+
+```sh
+mkdir -p v0.2.0 && cd v0.2.0
+cp .../libaddress_normalizer-aarch64-apple-darwin.dylib .
+sha256sum * > SHA256SUMS      # macOS なら shasum -a 256 * > SHA256SUMS
+cd .. && python3 -m http.server 8000
+```
+
 ```sh
 ADDRESS_NORMALIZER_BASE_URL=http://localhost:8000 bundle install
 ```
 
-> セキュリティ上の注意: ダウンロードしたバイナリのチェックサム検証・署名検証は実装していない。信頼できる `BASE_URL` のみを指定すること。
+> セキュリティ上の注意: 検証しているのは**転送の完全性**（破損・取り違え・配布元での差し替え）だけである。`SHA256SUMS` 自体はバイナリと同じ場所から同じ経路で取得するため、配布元そのものを掌握した攻撃者は両方を差し替えられる。これを防ぐには署名（cosign / minisign 等）が必要だが、未実装。信頼できる `BASE_URL` のみを指定すること。
 
 ---
 
@@ -199,11 +230,18 @@ ADDRESS_NORMALIZER_BASE_URL=http://localhost:8000 bundle install
 #    - ext/address_normalizer/extconf.rb VERSION
 #    - ext/address_normalizer/Cargo.toml [package] version
 # 2. タグを打って push
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
-ワークフローは 5 つの target を matrix でビルドし、`cross build --release` の成果物を配布名にリネームして `softprops/action-gh-release@v2` で同名タグの Release にアップロードする。`permissions: contents: write` が必要。
+ワークフローは 2 つのジョブからなる。`permissions: contents: write` が必要。
+
+| ジョブ | 内容 |
+|---|---|
+| `build` | 5 つの target を matrix でビルドし、`cross build --release` の成果物を配布名にリネームして `softprops/action-gh-release@v2` で同名タグの Release にアップロード |
+| `checksums` | `needs: build`。`gh release download` で 5 アセットを回収し、`sha256sum` でまとめた `SHA256SUMS` を同じ Release にアップロード |
+
+`checksums` は matrix の外（ubuntu-latest 1 台）で全アセットを揃えてからハッシュを取る。各ジョブが個別に `.sha256` を吐く方式にしていないのは、ランナーごとに `sha256sum` / `shasum` / `Get-FileHash` とコマンドが割れるため。
 
 **バージョンは 3 ファイルで独立に管理されている。** `extconf.rb` の `VERSION` が実際に打ったタグと食い違うと、存在しない URL を叩いてインストールが失敗する。
 

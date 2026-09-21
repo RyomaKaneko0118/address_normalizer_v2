@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name          = "address_normalizer"
-  s.version       = "0.1.0"
+  s.version       = "0.2.0"
   s.summary       = "Rust-powered address normalizer (prebuilt binary)"
   s.authors       = ["you"]
   s.add_dependency "fiddle", "~> 1.1"
